@@ -281,6 +281,37 @@
   .doc-label{font-size:14px;font-weight:600;}
   .doc.on .doc-label{color:var(--ink-soft);}
   .doc-tip{font-size:12px;color:var(--ink-faint);margin-top:2px;line-height:1.45;}
+  .form-text{
+    width:100%; min-height:240px; resize:vertical; font-family:var(--mono);
+    font-size:12.5px; line-height:1.5; color:var(--ink); background:var(--paper);
+    border:1px solid var(--line); border-radius:12px; padding:12px 13px; -webkit-appearance:none;
+  }
+  .form-text:focus{ outline:2px solid var(--accent); border-color:transparent; }
+  /* print / PDF report */
+  .print-report{ display:none; }
+  @media print{
+    .wrap, .scrim, .sheet { display:none !important; }
+    .print-report{ display:block !important; color:#000; font-family:var(--sans); padding:0; }
+    @page{ margin:14mm; }
+    .print-report h1{ font-size:20px; margin:0 0 2px; }
+    .print-report h2{ font-size:14px; margin:18px 0 6px; border-bottom:1px solid #000; padding-bottom:3px; }
+    .print-report .pr-sub{ font-size:12px; color:#333; margin-bottom:12px; }
+    .print-report .pr-meta{ font-size:11.5px; line-height:1.7; margin-bottom:6px; }
+    .print-report .pr-stats{ display:flex; gap:10px; margin:10px 0 4px; }
+    .print-report .pr-stats > div{ flex:1; border:1px solid #999; border-radius:6px; padding:8px 10px; }
+    .print-report .pr-stats .pr-big{ display:block; font-size:18px; font-weight:800; }
+    .print-report .pr-stats span:last-child{ font-size:9.5px; color:#333; }
+    .print-report table{ width:100%; border-collapse:collapse; font-size:10.5px; }
+    .print-report th, .print-report td{ border:1px solid #999; padding:4px 6px; text-align:left; vertical-align:top; }
+    .print-report th{ background:#eee; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+    .print-report .pr-num{ text-align:right; }
+    .print-report tr.pr-faded td{ color:#888; }
+    .print-report .pr-note{ color:#888; font-size:9px; }
+    .print-report .pr-line{ font-size:10.5px; margin-top:8px; }
+    .print-report .pr-docs{ list-style:none; padding:0; margin:6px 0 0; columns:2; font-size:11px; line-height:1.8; }
+    .print-report .pr-foot{ margin-top:16px; font-size:9.5px; color:#444; border-top:1px solid #ccc; padding-top:6px; }
+    .print-report tr{ page-break-inside:avoid; }
+  }
   @media (prefers-reduced-motion: reduce){
     *{transition:none!important;}
   }
@@ -406,6 +437,18 @@
           <button class="btn btn-line" id="importBtn">⬆ Import backup</button>
         </div>
         <div class="hint">Import also accepts the photo-scan file — it merges, so trips you’ve already added won’t be erased.</div>
+        <div class="field" style="margin-top:18px;">
+          <label for="setName">Your name (for the printout, optional)</label>
+          <input type="text" id="setName" placeholder="e.g. Jane Smith" autocomplete="off">
+        </div>
+        <div class="row-2">
+          <button class="btn btn-line" id="csvBtn">⊞ Export CSV</button>
+          <button class="btn btn-line" id="printBtn">🖨 Print / PDF</button>
+        </div>
+        <div class="row-2">
+          <button class="btn btn-line btn-block" id="formBtn">📋 Copy list for application form</button>
+        </div>
+        <div class="hint">CSV opens in Numbers or Excel. “Print / PDF” builds a tidy summary — on the print screen choose “Save to Files” to make a PDF for your solicitor.</div>
         <div class="row-2">
           <button class="btn btn-danger-line btn-block" id="resetBtn">Clear all data</button>
         </div>
@@ -462,8 +505,21 @@
     <input type="date" id="fReturn">
   </div>
   <div class="field">
+    <label for="fReason">Reason for absence</label>
+    <input type="text" id="fReason" list="reasonList" placeholder="e.g. Holiday" autocomplete="off">
+    <datalist id="reasonList">
+      <option value="Holiday"></option>
+      <option value="Work / business"></option>
+      <option value="Visiting family"></option>
+      <option value="Study"></option>
+      <option value="Medical"></option>
+      <option value="Bereavement"></option>
+    </datalist>
+    <div class="hint">This is what the application form asks for each trip.</div>
+  </div>
+  <div class="field">
     <label for="fNotes">Notes (optional)</label>
-    <textarea id="fNotes" placeholder="Reason, flight ref, anything you want to remember"></textarea>
+    <textarea id="fNotes" placeholder="Flight ref or anything else you want to remember"></textarea>
   </div>
   <div class="field">
     <label>Evidence I have for this trip</label>
@@ -483,6 +539,22 @@
     <button class="btn btn-danger-line btn-block" id="deleteBtn">Delete this trip</button>
   </div>
 </div>
+
+<div class="scrim" id="formScrim"></div>
+<div class="sheet" id="formSheet" role="dialog" aria-modal="true" aria-labelledby="formTitle">
+  <div class="grabber"></div>
+  <h3 id="formTitle">Absence list for your application</h3>
+  <div class="hint" style="margin-bottom:10px;">Paste this into the application's absences section, or send it to your solicitor. You can edit it here before copying.</div>
+  <textarea id="formText" class="form-text" spellcheck="false"></textarea>
+  <div class="row-2">
+    <button class="btn btn-line" id="formCloseBtn">Close</button>
+    <button class="btn btn-primary" id="formCopyBtn">Copy</button>
+  </div>
+  <div class="row-2">
+    <button class="btn btn-line btn-block" id="formShareBtn">Share / Save as .txt</button>
+  </div>
+</div>
+<div id="printReport" class="print-report" aria-hidden="true"></div>
 
 <script>
 "use strict";
@@ -521,7 +593,7 @@ function normTrip(t){
   t = t || {};
   return {
     id: t.id || ("t"+Date.now()+Math.floor(Math.random()*99999)),
-    destination: t.destination||"", depart: t.depart||"", return: t.return||"", notes: t.notes||"",
+    destination: t.destination||"", depart: t.depart||"", return: t.return||"", reason: t.reason||"", notes: t.notes||"",
     evidence: Object.assign({stamp:false,boarding:false,booking:false}, t.evidence||{})
   };
 }
@@ -802,6 +874,7 @@ function openSheet(id){
   document.getElementById("fDest").value = t? (t.destination||"") : "";
   document.getElementById("fDepart").value = t? (t.depart||"") : "";
   document.getElementById("fReturn").value = t? (t.return||"") : "";
+  document.getElementById("fReason").value = t? (t.reason||"") : "";
   document.getElementById("fNotes").value = t? (t.notes||"") : "";
   sheetEvidence = Object.assign({stamp:false,boarding:false,booking:false}, t ? (t.evidence||{}) : {});
   renderEvChips();
@@ -832,6 +905,7 @@ function readForm(){
     destination: document.getElementById("fDest").value.trim(),
     depart: document.getElementById("fDepart").value,
     return: ongoing ? "" : document.getElementById("fReturn").value,
+    reason: document.getElementById("fReason").value.trim(),
     notes: document.getElementById("fNotes").value.trim(),
     ongoing
   };
@@ -863,9 +937,9 @@ document.getElementById("saveBtn").addEventListener("click",()=>{
   if(err){ document.getElementById("formErr").textContent = err; return; }
   if(editingId){
     const t = state.trips.find(x=>x.id===editingId);
-    Object.assign(t,{destination:f.destination,depart:f.depart,return:f.return,notes:f.notes,evidence:Object.assign({},sheetEvidence)});
+    Object.assign(t,{destination:f.destination,depart:f.depart,return:f.return,reason:f.reason,notes:f.notes,evidence:Object.assign({},sheetEvidence)});
   } else {
-    state.trips.push(normTrip({ destination:f.destination, depart:f.depart, return:f.return, notes:f.notes, evidence:Object.assign({},sheetEvidence) }));
+    state.trips.push(normTrip({ destination:f.destination, depart:f.depart, return:f.return, reason:f.reason, notes:f.notes, evidence:Object.assign({},sheetEvidence) }));
   }
   closeSheet(); render();
 });
@@ -878,6 +952,7 @@ document.getElementById("deleteBtn").addEventListener("click",()=>{
 
 /* ---------- settings ---------- */
 function syncSettingsUI(){
+  document.getElementById("setName").value = state.settings.name||"";
   document.getElementById("setStart").value = state.settings.start;
   document.getElementById("setIlr").value = state.settings.ilr;
   document.getElementById("setLimit").value = state.settings.limit;
@@ -888,18 +963,135 @@ function syncSettingsUI(){
 document.getElementById("setStart").addEventListener("change",e=>{ state.settings.start=e.target.value; render(); });
 document.getElementById("setIlr").addEventListener("change",e=>{ state.settings.ilr=e.target.value; render(); });
 document.getElementById("setLimit").addEventListener("change",e=>{ state.settings.limit=Math.max(1,+e.target.value||180); render(); });
+document.getElementById("setName").addEventListener("input",e=>{ state.settings.name=e.target.value; save(); });
 document.querySelectorAll("#methodSeg button").forEach(b=>{
   b.addEventListener("click",()=>{ state.settings.method=b.dataset.m; syncSettingsUI(); render(); });
 });
 
 /* ---------- export / import / reset ---------- */
-document.getElementById("exportBtn").addEventListener("click",()=>{
-  const blob = new Blob([JSON.stringify(state,null,2)],{type:"application/json"});
+async function shareOrDownload(filename, content, mime){
+  try{
+    const file = new File([content], filename, {type:mime});
+    if(navigator.canShare && navigator.canShare({files:[file]})){
+      try{ await navigator.share({files:[file], title:filename}); }catch(e){}
+      return;
+    }
+  }catch(e){}
+  const blob = new Blob([content],{type:mime});
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
-  a.href=url; a.download="uk-days-backup-"+fmtISO(today())+".json";
+  a.href=url; a.download=filename;
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(()=>URL.revokeObjectURL(url),2000);
+}
+
+document.getElementById("exportBtn").addEventListener("click",()=>{
+  shareOrDownload("uk-days-backup-"+fmtISO(today())+".json", JSON.stringify(state,null,2), "application/json");
+});
+
+function csvCell(v){ v = (v==null?"":String(v)); return '"'+v.replace(/"/g,'""')+'"'; }
+document.getElementById("csvBtn").addEventListener("click",()=>{
+  const S = state.settings, qStart = parseD(S.start);
+  const rows = [["Destination","Reason","Left UK","Returned","Days outside UK","In qualifying period","Passport stamps","Boarding pass","Booking","Notes"]];
+  const sorted = [...state.trips].sort((a,b)=>(a.depart||"").localeCompare(b.depart||""));
+  sorted.forEach(t=>{
+    const iv = tripInterval(t,S.method), days = intervalDays(iv);
+    const inQ = iv ? (iv.end>=qStart ? "Yes":"No") : "No";
+    const ev = t.evidence||{};
+    rows.push([ t.destination||"", t.reason||"", t.depart||"", t.return || (t.depart?"still abroad":""), days, inQ,
+      ev.stamp?"Yes":"No", ev.boarding?"Yes":"No", ev.booking?"Yes":"No", t.notes||"" ]);
+  });
+  const csv = rows.map(r=>r.map(csvCell).join(",")).join("\r\n");
+  shareOrDownload("uk-absences-"+fmtISO(today())+".csv", "\uFEFF"+csv, "text/csv;charset=utf-8;");
+});
+
+function methodLabel(m){ return m==="inclusive" ? "Cautious (one travel day counted)" : "Home Office (travel days not counted)"; }
+function buildPrintReport(){
+  const r = compute(), S = state.settings, qStart = parseD(S.start);
+  const sorted = [...state.trips].sort((a,b)=>(a.depart||"").localeCompare(b.depart||""));
+  let trows = "";
+  sorted.forEach((t,i)=>{
+    const iv=tripInterval(t,S.method), days=intervalDays(iv);
+    const dep=parseD(t.depart), ongoing=!t.return, ret=ongoing?today():parseD(t.return);
+    const beforeQ = iv && iv.end<qStart;
+    const evList = EVIDENCE.filter(e=>t.evidence&&t.evidence[e.key]).map(e=>e.short);
+    const evTxt = evList.length===EVIDENCE.length ? "All" : (evList.length? evList.join(", ") : "\u2014");
+    trows += '<tr'+(beforeQ?' class="pr-faded"':'')+'>'+
+      '<td>'+(i+1)+'</td>'+
+      '<td>'+escapeHTML(t.destination||"\u2014")+(beforeQ?' <span class="pr-note">(before period)</span>':'')+'</td>'+
+      '<td>'+(dep?fmtShort(dep):"\u2014")+'</td>'+
+      '<td>'+(ongoing?"still abroad":fmtShort(ret))+'</td>'+
+      '<td class="pr-num">'+days+'</td>'+
+      '<td>'+evTxt+'</td>'+
+      '<td>'+escapeHTML([t.reason,t.notes].filter(Boolean).join(" \u2014 ")||"\u2014")+'</td></tr>';
+  });
+  if(!sorted.length) trows = '<tr><td colspan="7" style="text-align:center;color:#666;">No trips recorded</td></tr>';
+  const relevant = state.trips.filter(t=>{const iv=tripInterval(t,S.method); return !(iv&&iv.end<qStart);});
+  const evReady = relevant.filter(t=>evCount(t)===EVIDENCE.length).length;
+  const docRows = DOCS.map(d=> '<li>'+(state.docs[d.key]?"&#10003;":"&#9744;")+' '+escapeHTML(d.label)+'</li>').join("");
+  const peakState = r.peak>r.limit ? "OVER LIMIT" : (r.peak>r.limit*0.83 ? "approaching limit":"within limit");
+  const html =
+    '<h1>UK Absence Schedule</h1>'+
+    '<div class="pr-sub">Prepared for an Indefinite Leave to Remain (ILR) application'+(S.name?' &middot; '+escapeHTML(S.name):'')+'</div>'+
+    '<div class="pr-meta">'+
+      '<div><b>Qualifying period:</b> '+fmtShort(qStart)+' to '+fmtShort(r.ilr)+'</div>'+
+      '<div><b>Absence limit:</b> '+r.limit+' days in any rolling 12-month period</div>'+
+      '<div><b>Day counting:</b> '+methodLabel(S.method)+'</div>'+
+      '<div><b>Prepared:</b> '+fmtShort(today())+'</div>'+
+    '</div>'+
+    '<div class="pr-stats">'+
+      '<div><span class="pr-big">'+r.peak+' / '+r.limit+'</span><span>Worst rolling 12-month window ('+peakState+')</span></div>'+
+      '<div><span class="pr-big">'+r.totalOut+'</span><span>Total days outside UK in qualifying period</span></div>'+
+      '<div><span class="pr-big">'+r.current+'</span><span>Days outside in the last 12 months</span></div>'+
+    '</div>'+
+    '<h2>Absences ('+sorted.length+')</h2>'+
+    '<table><thead><tr><th>#</th><th>Destination</th><th>Left UK</th><th>Returned</th><th>Days</th><th>Evidence held</th><th>Reason / notes</th></tr></thead><tbody>'+trows+'</tbody></table>'+
+    '<div class="pr-line">Supporting evidence held for <b>'+evReady+'</b> of <b>'+relevant.length+'</b> trips in the qualifying period. Key: Stamps = passport stamps, Boarding = boarding pass / ticket, Booking = travel booking.</div>'+
+    '<h2>Application document checklist</h2>'+
+    '<ul class="pr-docs">'+docRows+'</ul>'+
+    '<div class="pr-foot">Self-prepared from personal records as a working aid; not legal advice. Absence dates should be verified against passport stamps and travel records. The Home Office\u2019s own assessment of continuous residence is definitive.</div>';
+  document.getElementById("printReport").innerHTML = html;
+}
+document.getElementById("printBtn").addEventListener("click",()=>{ buildPrintReport(); setTimeout(()=>window.print(),120); });
+
+const formScrim=document.getElementById("formScrim"), formSheet=document.getElementById("formSheet");
+function buildFormText(){
+  const S = state.settings, qStart = parseD(S.start), ilr = parseD(S.ilr);
+  const sorted = [...state.trips].sort((a,b)=>(a.depart||"").localeCompare(b.depart||""));
+  const rel = sorted.filter(t=>{ const iv=tripInterval(t,S.method); return iv && iv.end>=qStart && parseD(t.depart)<=ilr; });
+  let total=0;
+  const lines = rel.map((t,i)=>{
+    const iv=tripInterval(t,S.method), days=intervalDays(iv); total+=days;
+    const dep=parseD(t.depart), ongoing=!t.return, ret=ongoing?null:parseD(t.return);
+    const reason = t.reason || t.notes || "Not stated";
+    const dst = t.destination ? (" \u2014 "+t.destination) : "";
+    const retStr = ongoing ? "not yet returned" : fmtShort(ret);
+    return (i+1)+". Left "+fmtShort(dep)+", returned "+retStr+" ("+days+" day"+(days===1?"":"s")+")"+dst+" \u2014 "+reason;
+  });
+  const header = (S.name? S.name+" \u2014 ":"")+"Absences from the UK during the qualifying period\n("+
+    fmtShort(qStart)+" to "+fmtShort(ilr)+")\nTotal: "+rel.length+" absence"+(rel.length===1?"":"s")+", "+total+" days outside the UK.\n";
+  const footer = "\nDays counted using the "+methodLabel(S.method)+" method. Please verify each date against passport stamps and travel records.";
+  return header+"\n"+(lines.length? lines.join("\n") : "No absences recorded in the qualifying period.")+"\n"+footer;
+}
+function openFormSheet(){
+  document.getElementById("formText").value = buildFormText();
+  document.getElementById("formCopyBtn").textContent = "Copy";
+  formScrim.classList.add("show"); formSheet.classList.add("show");
+}
+function closeFormSheet(){ formScrim.classList.remove("show"); formSheet.classList.remove("show"); }
+document.getElementById("formBtn").addEventListener("click",openFormSheet);
+document.getElementById("formCloseBtn").addEventListener("click",closeFormSheet);
+formScrim.addEventListener("click",closeFormSheet);
+document.getElementById("formShareBtn").addEventListener("click",()=>{
+  shareOrDownload("uk-absences-"+fmtISO(today())+".txt", document.getElementById("formText").value, "text/plain;charset=utf-8;");
+});
+document.getElementById("formCopyBtn").addEventListener("click",async ()=>{
+  const ta = document.getElementById("formText"), btn = document.getElementById("formCopyBtn"), text = ta.value;
+  let ok=false;
+  try{ if(navigator.clipboard && navigator.clipboard.writeText){ await navigator.clipboard.writeText(text); ok=true; } }catch(e){}
+  if(!ok){ try{ ta.focus(); ta.setSelectionRange(0, text.length); ok=document.execCommand("copy"); }catch(e){} }
+  btn.textContent = ok ? "Copied \u2713" : "Select the text & copy";
+  setTimeout(()=>{ btn.textContent="Copy"; }, 1800);
 });
 document.getElementById("importBtn").addEventListener("click",()=>document.getElementById("importFile").click());
 function mergeTrips(incoming){
