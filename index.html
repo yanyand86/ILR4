@@ -1,0 +1,961 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="UK Days">
+<meta name="theme-color" content="#1b2a4a">
+<title>UK Days — ILR Tracker</title>
+<style>
+  :root{
+    --ink:#15171f;
+    --ink-soft:#5b6273;
+    --ink-faint:#8b91a1;
+    --paper:#e9edf2;
+    --card:#ffffff;
+    --line:#dde2ea;
+    --line-soft:#eef1f5;
+    --navy:#1b2a4a;
+    --navy-2:#233a63;
+    --accent:#2e6be6;
+    --ok:#1f9d6b;
+    --ok-soft:#e4f4ec;
+    --warn:#cf8400;
+    --warn-soft:#fbf0d9;
+    --danger:#d6453d;
+    --danger-soft:#fbe6e4;
+    --radius:18px;
+    --radius-sm:12px;
+    --shadow:0 1px 2px rgba(20,30,55,.05), 0 8px 24px rgba(20,30,55,.06);
+    --shadow-lift:0 10px 40px rgba(20,30,55,.18);
+    --mono:"SF Mono",ui-monospace,"Menlo","Roboto Mono",monospace;
+    --sans:-apple-system,"SF Pro Text","SF Pro Display",system-ui,"Segoe UI",Roboto,sans-serif;
+    --safe-top:env(safe-area-inset-top,0px);
+    --safe-bottom:env(safe-area-inset-bottom,0px);
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --ink:#edf0f5; --ink-soft:#a3aab9; --ink-faint:#777e8e;
+      --paper:#0d0f14; --card:#161a22; --line:#272d39; --line-soft:#1f242e;
+      --navy:#16233e; --navy-2:#1d2f53;
+      --accent:#5b8cf0; --ok:#34b985; --ok-soft:#16352a;
+      --warn:#e2a01f; --warn-soft:#3a2f12; --danger:#f0635b; --danger-soft:#3a201e;
+      --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.4);
+      --shadow-lift:0 10px 40px rgba(0,0,0,.55);
+    }
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;}
+  body{
+    font-family:var(--sans);
+    background:var(--paper);
+    color:var(--ink);
+    -webkit-font-smoothing:antialiased;
+    line-height:1.45;
+    padding-bottom:calc(40px + var(--safe-bottom));
+  }
+  .wrap{max-width:540px;margin:0 auto;}
+
+  /* ---------- HERO ---------- */
+  .hero{
+    background:linear-gradient(165deg,var(--navy) 0%,var(--navy-2) 100%);
+    color:#fff;
+    padding:calc(18px + var(--safe-top)) 22px 30px;
+    border-radius:0 0 28px 28px;
+    position:relative;
+    overflow:hidden;
+  }
+  .hero::after{
+    content:"";position:absolute;inset:0;
+    background:radial-gradient(120% 80% at 80% -10%,rgba(255,255,255,.10),transparent 60%);
+    pointer-events:none;
+  }
+  .hero-top{display:flex;justify-content:space-between;align-items:flex-start;position:relative;z-index:1;}
+  .brand{font-weight:700;font-size:15px;letter-spacing:.04em;display:flex;align-items:center;gap:8px;}
+  .brand .dot{width:9px;height:9px;border-radius:50%;background:#fff;opacity:.85;}
+  .ilr-chip{
+    font-family:var(--mono);font-size:11px;letter-spacing:.03em;
+    background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.18);
+    padding:5px 10px;border-radius:999px;color:rgba(255,255,255,.92);white-space:nowrap;
+  }
+
+  /* ---------- GAUGE ---------- */
+  .gauge-zone{position:relative;width:240px;height:200px;margin:14px auto 4px;}
+  .gauge-zone svg{display:block;width:100%;height:100%;}
+  .track{fill:none;stroke:rgba(255,255,255,.16);stroke-width:16;stroke-linecap:round;}
+  .fill{fill:none;stroke-width:16;stroke-linecap:round;transition:stroke-dasharray .9s cubic-bezier(.2,.8,.2,1),stroke .4s ease;}
+  .cur-track{fill:none;stroke:rgba(255,255,255,.10);stroke-width:6;stroke-linecap:round;}
+  .cur-fill{fill:none;stroke:rgba(255,255,255,.75);stroke-width:6;stroke-linecap:round;transition:stroke-dasharray .9s cubic-bezier(.2,.8,.2,1);}
+  .tick{stroke:rgba(255,255,255,.5);stroke-width:2;}
+  .gauge-center{
+    position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    padding-bottom:30px;pointer-events:none;z-index:2;
+  }
+  .gauge-num{font-size:60px;font-weight:800;letter-spacing:-.03em;line-height:.9;font-variant-numeric:tabular-nums;}
+  .gauge-of{font-family:var(--mono);font-size:12px;letter-spacing:.05em;color:rgba(255,255,255,.72);margin-top:7px;}
+  .gauge-cap{font-size:11.5px;letter-spacing:.03em;color:rgba(255,255,255,.62);margin-top:3px;text-transform:uppercase;}
+
+  .status-row{display:flex;flex-direction:column;align-items:center;gap:10px;position:relative;z-index:1;margin-top:2px;}
+  .pill{
+    display:inline-flex;align-items:center;gap:7px;font-weight:700;font-size:13px;letter-spacing:.02em;
+    padding:7px 15px;border-radius:999px;
+  }
+  .pill .glyph{width:8px;height:8px;border-radius:50%;background:currentColor;}
+  .pill.ok{background:var(--ok-soft);color:var(--ok);}
+  .pill.warn{background:var(--warn-soft);color:var(--warn);}
+  .pill.danger{background:var(--danger-soft);color:var(--danger);}
+  .room-line{font-size:13.5px;color:rgba(255,255,255,.85);}
+  .room-line b{font-weight:800;}
+
+  /* ---------- TILES ---------- */
+  .section{padding:20px 16px 0;}
+  .tiles{display:grid;grid-template-columns:1fr 1fr;gap:11px;}
+  .tile{
+    background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+    padding:14px 15px;box-shadow:var(--shadow);
+  }
+  .tile-label{font-size:11.5px;letter-spacing:.02em;color:var(--ink-soft);font-weight:600;display:flex;align-items:center;gap:6px;}
+  .tile-num{font-size:27px;font-weight:800;letter-spacing:-.02em;margin-top:5px;font-variant-numeric:tabular-nums;}
+  .tile-sub{font-family:var(--mono);font-size:11px;color:var(--ink-faint);margin-top:2px;}
+  .tile-sub.warn{color:var(--warn);} .tile-sub.danger{color:var(--danger);} .tile-sub.ok{color:var(--ok);}
+
+  /* ---------- ALERT ---------- */
+  .alert{
+    margin:16px 16px 0;border-radius:var(--radius);padding:14px 16px;display:flex;gap:11px;align-items:flex-start;
+    border:1px solid var(--danger);background:var(--danger-soft);color:var(--ink);box-shadow:var(--shadow);
+  }
+  .alert.warn{border-color:var(--warn);background:var(--warn-soft);}
+  .alert .a-ico{font-size:18px;line-height:1.3;}
+  .alert .a-body{font-size:13px;}
+  .alert .a-body strong{display:block;margin-bottom:2px;font-size:13.5px;}
+
+  /* ---------- TRIPS ---------- */
+  .head-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:13px;padding:0 4px;}
+  .head-row h2{margin:0;font-size:19px;font-weight:800;letter-spacing:-.01em;}
+  .btn{
+    font-family:var(--sans);font-weight:700;font-size:14px;border:none;cursor:pointer;
+    border-radius:12px;padding:10px 16px;transition:transform .08s ease,opacity .15s ease;
+  }
+  .btn:active{transform:scale(.96);}
+  .btn-primary{background:var(--accent);color:#fff;display:inline-flex;align-items:center;gap:7px;}
+  .btn-ghost{background:transparent;color:var(--accent);padding:8px 10px;}
+  .btn-line{background:var(--card);color:var(--ink);border:1px solid var(--line);}
+  .btn-danger-line{background:transparent;color:var(--danger);border:1px solid var(--danger);}
+  .btn-block{width:100%;justify-content:center;padding:14px;font-size:15px;}
+
+  .trip{
+    background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+    padding:14px 15px;margin-bottom:11px;box-shadow:var(--shadow);
+    display:flex;align-items:center;gap:13px;cursor:pointer;transition:transform .08s ease;
+  }
+  .trip:active{transform:scale(.99);}
+  .trip.faded{opacity:.55;}
+  .trip-ico{
+    width:42px;height:42px;flex:none;border-radius:12px;background:var(--line-soft);
+    display:flex;align-items:center;justify-content:center;font-size:19px;
+  }
+  .trip-main{flex:1;min-width:0;}
+  .trip-dest{font-weight:700;font-size:15.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .trip-dates{font-family:var(--mono);font-size:11.5px;color:var(--ink-soft);margin-top:2px;}
+  .trip-tag{font-size:10.5px;font-family:var(--mono);color:var(--ink-faint);margin-top:3px;}
+  .trip-days{text-align:right;flex:none;}
+  .trip-days .d{font-size:21px;font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:-.01em;}
+  .trip-days .u{font-size:10px;font-family:var(--mono);color:var(--ink-faint);text-transform:uppercase;letter-spacing:.05em;}
+
+  .empty{
+    text-align:center;padding:34px 24px;border:1.5px dashed var(--line);border-radius:var(--radius);
+    color:var(--ink-soft);background:var(--card);
+  }
+  .empty .e-ico{font-size:30px;margin-bottom:8px;opacity:.7;}
+  .empty p{margin:6px 0 0;font-size:14px;}
+
+  /* ---------- COLLAPSIBLE ---------- */
+  details.panel{
+    background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+    margin-top:11px;box-shadow:var(--shadow);overflow:hidden;
+  }
+  details.panel>summary{
+    list-style:none;cursor:pointer;padding:15px 16px;font-weight:700;font-size:15px;
+    display:flex;align-items:center;justify-content:space-between;
+  }
+  details.panel>summary::-webkit-details-marker{display:none;}
+  details.panel>summary .chev{transition:transform .2s ease;color:var(--ink-faint);}
+  details.panel[open]>summary .chev{transform:rotate(90deg);}
+  .panel-body{padding:4px 16px 18px;border-top:1px solid var(--line-soft);}
+  .field{margin-top:14px;}
+  .field label{display:block;font-size:12.5px;font-weight:600;color:var(--ink-soft);margin-bottom:6px;}
+  .field input[type=date],.field input[type=text],.field input[type=number],.field select,.field textarea{
+    width:100%;font-family:var(--sans);font-size:16px;color:var(--ink);
+    background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:12px 13px;
+    -webkit-appearance:none;appearance:none;
+  }
+  .field textarea{min-height:60px;resize:vertical;line-height:1.4;}
+  .field input:focus,.field select:focus,.field textarea:focus{outline:2px solid var(--accent);outline-offset:0;border-color:transparent;}
+  .field .hint{font-size:11.5px;color:var(--ink-faint);margin-top:6px;font-family:var(--mono);}
+  .seg{display:flex;gap:0;border:1px solid var(--line);border-radius:12px;overflow:hidden;}
+  .seg button{flex:1;background:var(--paper);border:none;padding:11px 8px;font-family:var(--sans);font-weight:600;font-size:13px;color:var(--ink-soft);cursor:pointer;}
+  .seg button.on{background:var(--accent);color:#fff;}
+  .row-2{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;}
+  .row-2 .btn{flex:1;min-width:120px;}
+  .toggle-row{display:flex;align-items:center;justify-content:space-between;margin-top:16px;}
+  .toggle-row span{font-size:14px;font-weight:600;}
+  .switch{position:relative;width:50px;height:30px;flex:none;}
+  .switch input{opacity:0;width:0;height:0;}
+  .slider{position:absolute;inset:0;background:var(--line);border-radius:30px;transition:.2s;}
+  .slider::before{content:"";position:absolute;height:24px;width:24px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s;box-shadow:0 1px 3px rgba(0,0,0,.3);}
+  .switch input:checked + .slider{background:var(--accent);}
+  .switch input:checked + .slider::before{transform:translateX(20px);}
+
+  .note{font-size:12px;color:var(--ink-soft);line-height:1.55;}
+  .note code{font-family:var(--mono);font-size:11px;background:var(--paper);padding:1px 5px;border-radius:5px;}
+  .disclaimer{margin:22px 16px 0;font-size:11.5px;color:var(--ink-faint);line-height:1.55;text-align:center;}
+  .disclaimer a{color:var(--accent);text-decoration:none;}
+
+  /* ---------- SHEET / MODAL ---------- */
+  .scrim{
+    position:fixed;inset:0;background:rgba(10,15,28,.5);backdrop-filter:blur(3px);
+    opacity:0;pointer-events:none;transition:opacity .25s ease;z-index:50;
+  }
+  .scrim.show{opacity:1;pointer-events:auto;}
+  .sheet{
+    position:fixed;left:0;right:0;bottom:0;z-index:51;
+    background:var(--card);border-radius:24px 24px 0 0;
+    padding:8px 18px calc(20px + var(--safe-bottom));
+    transform:translateY(110%);transition:transform .3s cubic-bezier(.2,.8,.2,1);
+    box-shadow:var(--shadow-lift);max-width:540px;margin:0 auto;max-height:92vh;overflow-y:auto;
+  }
+  .sheet.show{transform:translateY(0);}
+  .grabber{width:38px;height:5px;border-radius:5px;background:var(--line);margin:6px auto 10px;}
+  .sheet h3{margin:0 0 2px;font-size:20px;font-weight:800;letter-spacing:-.01em;}
+  .sheet .live-days{
+    margin-top:16px;background:var(--paper);border-radius:14px;padding:14px;text-align:center;
+  }
+  .sheet .live-days .n{font-size:32px;font-weight:800;font-variant-numeric:tabular-nums;}
+  .sheet .live-days .l{font-size:12px;color:var(--ink-soft);font-family:var(--mono);margin-top:2px;}
+  .err{color:var(--danger);font-size:12.5px;margin-top:10px;font-weight:600;min-height:1em;}
+  /* evidence + documents */
+  .ev-summary{
+    display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ink-soft);
+    background:var(--card);border:1px solid var(--line);border-radius:14px;
+    padding:11px 14px;margin-bottom:13px;box-shadow:var(--shadow);
+  }
+  .ev-summary b{color:var(--ink);}
+  .ev-summary .ev-dot{width:9px;height:9px;border-radius:50%;flex:none;background:var(--ink-faint);}
+  .ev-summary.ev-ok .ev-dot{background:var(--ok);}
+  .ev-summary.ev-part .ev-dot{background:var(--warn);}
+  .ev-summary.ev-none .ev-dot{background:var(--danger);}
+  .ev-badge{
+    display:inline-block;font-family:var(--mono);font-size:10.5px;letter-spacing:.02em;
+    margin-top:5px;padding:2px 8px;border-radius:999px;
+  }
+  .ev-badge.ev-ok{color:var(--ok);background:var(--ok-soft);}
+  .ev-badge.ev-part{color:var(--warn);background:var(--warn-soft);}
+  .ev-badge.ev-none{color:var(--ink-faint);background:var(--line-soft);}
+  .chips{display:flex;flex-wrap:wrap;gap:8px;}
+  .chip{
+    font-family:var(--sans);font-size:13px;font-weight:600;cursor:pointer;
+    border:1px solid var(--line);background:var(--paper);color:var(--ink-soft);
+    border-radius:999px;padding:9px 13px;transition:transform .08s ease;
+  }
+  .chip:active{transform:scale(.96);}
+  .chip.on{background:var(--accent);border-color:var(--accent);color:#fff;}
+  .docs-progress{margin-bottom:8px;}
+  .docs-bar{height:8px;border-radius:8px;background:var(--line-soft);overflow:hidden;}
+  .docs-bar span{display:block;height:100%;background:var(--ok);border-radius:8px;transition:width .4s ease;}
+  .docs-count{font-family:var(--mono);font-size:11px;color:var(--ink-faint);margin-top:6px;}
+  .doc{
+    display:flex;gap:12px;align-items:flex-start;cursor:pointer;
+    padding:12px 0;border-top:1px solid var(--line-soft);
+  }
+  .doc:first-child{border-top:none;}
+  .doc-box{
+    width:24px;height:24px;flex:none;border-radius:7px;border:1.5px solid var(--line);
+    display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;color:#fff;
+    background:var(--card);transition:.15s;margin-top:1px;
+  }
+  .doc.on .doc-box{background:var(--ok);border-color:var(--ok);}
+  .doc-main{flex:1;min-width:0;}
+  .doc-label{font-size:14px;font-weight:600;}
+  .doc.on .doc-label{color:var(--ink-soft);}
+  .doc-tip{font-size:12px;color:var(--ink-faint);margin-top:2px;line-height:1.45;}
+  @media (prefers-reduced-motion: reduce){
+    *{transition:none!important;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- HERO -->
+  <header class="hero">
+    <div class="hero-top">
+      <div class="brand"><span class="dot"></span> UK Days</div>
+      <div class="ilr-chip" id="ilrChip">ILR · —</div>
+    </div>
+
+    <div class="gauge-zone">
+      <svg viewBox="0 0 200 200" aria-hidden="true">
+        <g transform="rotate(135 100 100)">
+          <circle class="track" cx="100" cy="100" r="80"></circle>
+          <circle class="fill" id="gaugeFill" cx="100" cy="100" r="80"></circle>
+          <circle class="cur-track" cx="100" cy="100" r="62"></circle>
+          <circle class="cur-fill" id="gaugeCur" cx="100" cy="100" r="62"></circle>
+        </g>
+        <!-- ticks at 0, 90, 180 of the budget -->
+        <line class="tick" x1="100" y1="180" x2="100" y2="172" transform="rotate(135 100 100)"></line>
+        <line class="tick" x1="100" y1="180" x2="100" y2="172" transform="rotate(270 100 100)"></line>
+        <line class="tick" x1="100" y1="180" x2="100" y2="172" transform="rotate(45 100 100)"></line>
+      </svg>
+      <div class="gauge-center">
+        <div class="gauge-num" id="peakNum">0</div>
+        <div class="gauge-of">/ 180 days</div>
+        <div class="gauge-cap">worst 12-mo window</div>
+      </div>
+    </div>
+
+    <div class="status-row">
+      <span class="pill ok" id="statusPill"><span class="glyph"></span><span id="statusText">On track</span></span>
+      <span class="room-line" id="roomLine"></span>
+    </div>
+  </header>
+
+  <!-- TILES -->
+  <div class="section">
+    <div class="tiles">
+      <div class="tile">
+        <div class="tile-label">📅 Current 12-mo window</div>
+        <div class="tile-num" id="curNum">0</div>
+        <div class="tile-sub" id="curSub">days out · 180 room</div>
+      </div>
+      <div class="tile">
+        <div class="tile-label">✈️ Total days outside</div>
+        <div class="tile-num" id="totalOut">0</div>
+        <div class="tile-sub">across qualifying period</div>
+      </div>
+      <div class="tile">
+        <div class="tile-label">🏠 Days inside UK</div>
+        <div class="tile-num" id="daysIn">0</div>
+        <div class="tile-sub" id="daysInSub">so far</div>
+      </div>
+      <div class="tile">
+        <div class="tile-label">⏳ Until ILR</div>
+        <div class="tile-num" id="daysToIlr">—</div>
+        <div class="tile-sub" id="ilrSub">days</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ALERT (injected) -->
+  <div id="alertSlot"></div>
+
+  <!-- TRIPS -->
+  <div class="section">
+    <div class="head-row">
+      <h2>Trips</h2>
+      <button class="btn btn-primary" id="addBtn">＋ Add trip</button>
+    </div>
+    <div id="evSummary" class="ev-summary" style="display:none;"></div>
+    <div id="tripList"></div>
+  </div>
+
+  <!-- DOCUMENT CHECKLIST -->
+  <div class="section">
+    <details class="panel" id="docsPanel">
+      <summary>Application document checklist <span class="chev">›</span></summary>
+      <div class="panel-body">
+        <div class="docs-progress" id="docsProgress"></div>
+        <div id="docsList"></div>
+        <div class="hint" style="margin-top:14px;">No stamps in your passport (eGates)? You can request your full travel record from the Home Office with a Subject Access Request — allow about a month. Start gathering ~3 months before you apply, and confirm the live list on <a href="https://www.gov.uk/indefinite-leave-to-remain" target="_blank" rel="noopener">gov.uk</a>.</div>
+      </div>
+    </details>
+  </div>
+
+  <!-- SETTINGS + INFO -->
+  <div class="section">
+    <details class="panel" id="settingsPanel">
+      <summary>Settings <span class="chev">›</span></summary>
+      <div class="panel-body">
+        <div class="field">
+          <label for="setStart">Qualifying period started</label>
+          <input type="date" id="setStart">
+          <div class="hint">Usually the day your qualifying visa began (5 yrs before ILR for most routes).</div>
+        </div>
+        <div class="field">
+          <label for="setIlr">ILR application date</label>
+          <input type="date" id="setIlr">
+          <div class="hint">Your target settlement date.</div>
+        </div>
+        <div class="field">
+          <label for="setLimit">Absence limit (days per rolling 12 months)</label>
+          <input type="number" id="setLimit" min="1" max="540">
+          <div class="hint">Standard is 180 for most work/family routes.</div>
+        </div>
+        <div class="field">
+          <label>How travel days are counted</label>
+          <div class="seg" id="methodSeg">
+            <button data-m="exclusive" class="on">Home Office (exclude travel days)</button>
+            <button data-m="inclusive">Cautious (+1 day)</button>
+          </div>
+          <div class="hint">Home Office guidance: the day you leave and the day you return do not count as absences. "Cautious" counts one travel day as a safety buffer.</div>
+        </div>
+        <div class="row-2">
+          <button class="btn btn-line" id="exportBtn">⬇ Export backup</button>
+          <button class="btn btn-line" id="importBtn">⬆ Import backup</button>
+        </div>
+        <div class="hint">Import also accepts the photo-scan file — it merges, so trips you’ve already added won’t be erased.</div>
+        <div class="row-2">
+          <button class="btn btn-danger-line btn-block" id="resetBtn">Clear all data</button>
+        </div>
+        <input type="file" id="importFile" accept="application/json,.json" hidden>
+      </div>
+    </details>
+
+    <details class="panel">
+      <summary>How the count works <span class="chev">›</span></summary>
+      <div class="panel-body">
+        <p class="note">
+          For most routes (Skilled Worker, Health &amp; Care, Spouse/Partner, Global Talent, Ancestry, Innovator Founder) the rule is:
+          <b>no more than 180 days outside the UK in any rolling 12-month period</b> across your qualifying residence — assessed since 11 Jan 2018 on a rolling basis, not by calendar year.
+        </p>
+        <p class="note" style="margin-top:10px;">
+          The big gauge shows your <b>worst</b> 12-month window — that's the one that can get an application refused. The "current window" tile shows your last 365 days from today, so you can plan upcoming trips.
+        </p>
+        <p class="note" style="margin-top:10px;">
+          A single continuous absence of more than ~6 months can break continuous residence entirely and reset the clock — this app flags that for you.
+        </p>
+        <p class="note" style="margin-top:10px;">
+          Different routes vary (e.g. Long Residence uses 10 years), and some absences may be exempt. The 5-year route remained in force in mid-2026, but rules can change. Always check the live guidance at
+          <a href="https://www.gov.uk/government/publications/indefinite-leave-to-remain-calculating-continuous-period-in-uk" target="_blank" rel="noopener">gov.uk</a>.
+        </p>
+      </div>
+    </details>
+  </div>
+
+  <p class="disclaimer">
+    A personal tracking aid, not legal advice. The Home Office's own record of your travel is what ultimately counts — keep your passport stamps and boarding passes.
+    Verify your specific route on <a href="https://www.gov.uk/indefinite-leave-to-remain" target="_blank" rel="noopener">gov.uk</a> or with a registered adviser.
+  </p>
+</div>
+
+<!-- ADD/EDIT SHEET -->
+<div class="scrim" id="scrim"></div>
+<div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+  <div class="grabber"></div>
+  <h3 id="sheetTitle">Add trip</h3>
+  <div class="field">
+    <label for="fDest">Destination</label>
+    <input type="text" id="fDest" placeholder="e.g. Spain, family visit" autocomplete="off">
+  </div>
+  <div class="field">
+    <label for="fDepart">Left the UK</label>
+    <input type="date" id="fDepart">
+  </div>
+  <div class="toggle-row">
+    <span>Still abroad now</span>
+    <label class="switch"><input type="checkbox" id="fOngoing"><span class="slider"></span></label>
+  </div>
+  <div class="field" id="returnField">
+    <label for="fReturn">Returned to the UK</label>
+    <input type="date" id="fReturn">
+  </div>
+  <div class="field">
+    <label for="fNotes">Notes (optional)</label>
+    <textarea id="fNotes" placeholder="Reason, flight ref, anything you want to remember"></textarea>
+  </div>
+  <div class="field">
+    <label>Evidence I have for this trip</label>
+    <div class="chips" id="evChips"></div>
+    <div class="hint">Tap each one you can prove. For longer trips, also keep a documented reason (e.g. an employer letter).</div>
+  </div>
+  <div class="live-days">
+    <div class="n" id="liveDays">0</div>
+    <div class="l">days outside UK</div>
+  </div>
+  <div class="err" id="formErr"></div>
+  <div class="row-2">
+    <button class="btn btn-line" id="cancelBtn">Cancel</button>
+    <button class="btn btn-primary" id="saveBtn">Save trip</button>
+  </div>
+  <div class="row-2" id="deleteRow" style="display:none;">
+    <button class="btn btn-danger-line btn-block" id="deleteBtn">Delete this trip</button>
+  </div>
+</div>
+
+<script>
+"use strict";
+
+/* ---------- safe storage (works on your phone via localStorage; falls back to memory in previews) ---------- */
+const Store = (() => {
+  let mem = {}, ok = false;
+  try { localStorage.setItem("__t","1"); localStorage.removeItem("__t"); ok = true; } catch(e){ ok = false; }
+  return {
+    get(k){ try { return ok ? localStorage.getItem(k) : (k in mem ? mem[k] : null); } catch(e){ return (k in mem)?mem[k]:null; } },
+    set(k,v){ try { ok ? localStorage.setItem(k,v) : (mem[k]=v); } catch(e){ mem[k]=v; } }
+  };
+})();
+const KEY = "ukdays.v1";
+
+/* ---------- evidence + document config ---------- */
+const EVIDENCE = [
+  { key:"stamp",    short:"Stamps",   label:"Passport entry/exit stamps" },
+  { key:"boarding", short:"Boarding", label:"Boarding pass / e-ticket" },
+  { key:"booking",  short:"Booking",  label:"Flight / travel booking" }
+];
+const DOCS = [
+  { key:"passports", label:"All passports for the qualifying period", tip:"Current + previous, with visa stamps/vignettes. Scan every page, including blanks." },
+  { key:"status",    label:"Immigration status proof", tip:"Your eVisa share code from the UKVI account (and BRP if you still hold one)." },
+  { key:"absences",  label:"Complete schedule of absences", tip:"Every trip with dates + destinations \u2014 export this app's data as your working list." },
+  { key:"residence", label:"Proof of UK residence \u2014 aim for 2 per year", tip:"Council tax, tenancy/mortgage, utility bills, bank statements showing your UK address." },
+  { key:"employer",  label:"Employer letter (work routes)", tip:"Job title, salary, start date, still employed, plus any overseas work periods." },
+  { key:"payslips",  label:"Payslips \u2014 recent 6\u201312 months", tip:"Gross pay should meet your route's threshold and match your bank statements." },
+  { key:"p60",       label:"P60s / tax records", tip:"For the qualifying years, backing up continuous employment." },
+  { key:"bank",      label:"Bank statements \u2014 last 6 months", tip:"Must be no more than 28 days old when you submit." },
+  { key:"english",   label:"English language evidence", tip:"B1+ SELT or a qualifying degree \u2014 unless you're exempt." },
+  { key:"liuk",      label:"Life in the UK test pass", tip:"Pass notification / reference. The pass doesn't expire." },
+  { key:"route",     label:"Route-specific evidence", tip:"e.g. relationship proof for a partner route, or documents for dependants." }
+];
+function normTrip(t){
+  t = t || {};
+  return {
+    id: t.id || ("t"+Date.now()+Math.floor(Math.random()*99999)),
+    destination: t.destination||"", depart: t.depart||"", return: t.return||"", notes: t.notes||"",
+    evidence: Object.assign({stamp:false,boarding:false,booking:false}, t.evidence||{})
+  };
+}
+function evCount(t){ return EVIDENCE.reduce((n,e)=> n + (t.evidence && t.evidence[e.key] ? 1 : 0), 0); }
+
+/* ---------- date helpers ---------- */
+const DAY = 86400000;
+function parseD(s){ if(!s) return null; const p=s.split("-"); return new Date(+p[0], +p[1]-1, +p[2]); }
+function fmtISO(d){ const m=String(d.getMonth()+1).padStart(2,"0"), day=String(d.getDate()).padStart(2,"0"); return d.getFullYear()+"-"+m+"-"+day; }
+function startOfDay(d){ const x=new Date(d); x.setHours(0,0,0,0); return x; }
+function today(){ return startOfDay(new Date()); }
+function addDays(d,n){ const x=new Date(d); x.setDate(x.getDate()+n); return x; }
+function dayDiff(a,b){ return Math.round((startOfDay(b)-startOfDay(a))/DAY); } // whole days b-a
+const MON=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+function fmtShort(d){ return d.getDate()+" "+MON[d.getMonth()]+" "+String(d.getFullYear()).slice(2); }
+function fmtRange(a,b){
+  if(a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth())
+    return a.getDate()+"–"+b.getDate()+" "+MON[a.getMonth()]+" "+String(a.getFullYear()).slice(2);
+  return fmtShort(a)+" → "+fmtShort(b);
+}
+
+/* ---------- state ---------- */
+let state = loadState();
+function loadState(){
+  let s=null;
+  try { s = JSON.parse(Store.get(KEY)); } catch(e){}
+  if(!s || typeof s!=="object"){
+    s = {
+      settings:{ start:"2021-09-28", ilr:"2026-09-28", limit:180, method:"exclusive" },
+      trips:[]
+    };
+  }
+  s.settings = Object.assign({ start:"2021-09-28", ilr:"2026-09-28", limit:180, method:"exclusive" }, s.settings||{});
+  s.trips = (Array.isArray(s.trips) ? s.trips : []).map(normTrip);
+  s.docs = (s.docs && typeof s.docs==="object") ? s.docs : {};
+  return s;
+}
+function save(){ Store.set(KEY, JSON.stringify(state)); }
+
+/* ---------- core calculation ---------- */
+// full-day absence interval [start,end] inclusive for a trip, given counting method
+function tripInterval(trip, method){
+  const dep = parseD(trip.depart);
+  if(!dep) return null;
+  let ret = trip.return ? parseD(trip.return) : addDays(today(),1); // ongoing -> through today
+  if(dayDiff(dep,ret) < 0) return null;
+  // exclusive: travel days don't count -> [dep+1 .. ret-1]; inclusive: count departure day -> [dep .. ret-1]
+  const start = method==="inclusive" ? dep : addDays(dep,1);
+  const end = addDays(ret,-1);
+  if(dayDiff(start,end) < 0) return null; // 0 full days
+  return { start, end, raw:{dep,ret} };
+}
+function intervalDays(iv){ return iv ? dayDiff(iv.start,iv.end)+1 : 0; }
+function overlapDays(s1,e1,s2,e2){
+  const s = s1>s2?s1:s2, e = e1<e2?e1:e2;
+  const d = dayDiff(s,e)+1;
+  return d>0 ? d : 0;
+}
+
+function compute(){
+  const S = state.settings;
+  const qStart = parseD(S.start), ilr = parseD(S.ilr);
+  const limit = +S.limit || 180;
+  const tdy = today();
+
+  // build clipped intervals within [qStart, ilr]
+  const ivs = [];
+  let continuityBreak = null, longestSingle = 0;
+  state.trips.forEach(t=>{
+    const iv = tripInterval(t, S.method);
+    // longest single absence uses nights (return - depart), independent of method
+    const dep=parseD(t.depart); const ret=t.return?parseD(t.return):tdy;
+    if(dep){ const nights=Math.max(0,dayDiff(dep,ret)); if(nights>longestSingle) longestSingle=nights;
+      if(nights>180 && !continuityBreak) continuityBreak=t; }
+    if(!iv) return;
+    const cs = iv.start<qStart?qStart:iv.start;
+    const ce = iv.end>ilr?ilr:iv.end;
+    if(dayDiff(cs,ce)>=0) ivs.push({start:cs,end:ce});
+  });
+
+  // total days outside within qualifying period
+  let totalOut = 0; ivs.forEach(iv=> totalOut += dayDiff(iv.start,iv.end)+1);
+
+  // ---- rolling peak via prefix sum over qualifying period ----
+  let peak=0, peakEnd=null;
+  if(dayDiff(qStart,ilr) >= 0){
+    const N = dayDiff(qStart, ilr)+1;
+    const absent = new Uint8Array(N);
+    ivs.forEach(iv=>{
+      let i = dayDiff(qStart, iv.start), j = dayDiff(qStart, iv.end);
+      if(i<0) i=0; if(j>N-1) j=N-1;
+      for(let k=i;k<=j;k++) absent[k]=1;
+    });
+    const prefix = new Int32Array(N+1);
+    for(let k=0;k<N;k++) prefix[k+1]=prefix[k]+absent[k];
+    for(let j=0;j<N;j++){
+      const i = Math.max(0, j-364);          // 365-day rolling window
+      const days = prefix[j+1]-prefix[i];
+      if(days>peak){ peak=days; peakEnd=addDays(qStart,j); }
+    }
+  }
+
+  // ---- current rolling window (last 365 days from today) ----
+  const winStart = addDays(tdy,-364);
+  let current=0;
+  ivs.forEach(iv=> current += overlapDays(iv.start,iv.end, winStart, tdy));
+
+  // days inside UK so far (from qStart to min(today,ilr))
+  const upto = tdy<ilr?tdy:ilr;
+  let elapsed = dayDiff(qStart,upto)+1; if(elapsed<0) elapsed=0;
+  let outSoFar=0; ivs.forEach(iv=>{ outSoFar += overlapDays(iv.start,iv.end,qStart,upto); });
+  const daysIn = Math.max(0, elapsed - outSoFar);
+
+  const daysToIlr = dayDiff(tdy, ilr);
+
+  return { limit, peak, peakEnd, current, totalOut, daysIn, daysToIlr,
+           continuityBreak, longestSingle, winStart, qStart, ilr };
+}
+
+/* ---------- rendering ---------- */
+const C = 2*Math.PI*80;       // outer gauge circumference
+const ARC = 0.75*C;           // 270deg visible track
+const Cc = 2*Math.PI*62;      // inner (current) circumference
+const ARCc = 0.75*Cc;
+
+function setGauge(el, value, limit, circ, arc){
+  const frac = Math.max(0, Math.min(1, value/limit));
+  const len = frac*arc;
+  el.setAttribute("stroke-dasharray", len.toFixed(2)+" "+circ.toFixed(2));
+}
+function statusFor(peak, current, limit, breakTrip){
+  if(breakTrip || peak>limit) return {cls:"danger", txt: peak>limit ? "Over the limit" : "Continuity at risk"};
+  const near = limit*0.83;
+  if(peak>near || current>near) return {cls:"warn", txt:"Getting close"};
+  return {cls:"ok", txt:"On track"};
+}
+
+function render(){
+  const r = compute();
+  // gauge
+  document.getElementById("peakNum").textContent = r.peak;
+  const fill = document.getElementById("gaugeFill");
+  setGauge(fill, r.peak, r.limit, C, ARC);
+  const col = getComputedStyle(document.documentElement).getPropertyValue(
+    r.peak>r.limit ? "--danger" : (r.peak>r.limit*0.83 ? "--warn" : "--ok")).trim();
+  fill.style.stroke = col || "#1f9d6b";
+  setGauge(document.getElementById("gaugeCur"), r.current, r.limit, Cc, ARCc);
+
+  // status + room
+  const st = statusFor(r.peak, r.current, r.limit, r.continuityBreak);
+  const pill = document.getElementById("statusPill");
+  pill.className = "pill "+st.cls;
+  document.getElementById("statusText").textContent = st.txt;
+  const room = r.limit - r.peak;
+  const roomEl = document.getElementById("roomLine");
+  if(room>=0) roomEl.innerHTML = "<b>"+room+"</b> day"+(room===1?"":"s")+" of room in your worst window";
+  else roomEl.innerHTML = "<b>"+Math.abs(room)+"</b> day"+(Math.abs(room)===1?"":"s")+" over the limit";
+
+  // tiles
+  document.getElementById("curNum").textContent = r.current;
+  const curRoom = r.limit - r.current;
+  const curSub = document.getElementById("curSub");
+  curSub.textContent = "days out · " + (curRoom>=0? curRoom+" room" : Math.abs(curRoom)+" over");
+  curSub.className = "tile-sub" + (curRoom<0?" danger":(curRoom< r.limit*0.17?" warn":""));
+  document.getElementById("totalOut").textContent = r.totalOut;
+  document.getElementById("daysIn").textContent = r.daysIn;
+  const dti = document.getElementById("daysToIlr");
+  const ilrSub = document.getElementById("ilrSub");
+  if(r.daysToIlr>=0){ dti.textContent = r.daysToIlr; ilrSub.textContent = "days to go"; }
+  else { dti.textContent = "✓"; ilrSub.textContent = "date passed"; }
+
+  // ILR chip
+  document.getElementById("ilrChip").textContent = "ILR · " + fmtShort(r.ilr);
+
+  // alert
+  const slot = document.getElementById("alertSlot");
+  slot.innerHTML = "";
+  if(r.continuityBreak){
+    slot.innerHTML = alertHTML("danger","⛔","Possible break in continuous residence",
+      "A trip ("+escapeHTML(r.continuityBreak.destination||"untitled")+") lasts more than ~6 months. A single absence this long can reset your qualifying period. Check the exemptions on gov.uk.");
+  } else if(r.peak>r.limit){
+    const over = r.peak-r.limit;
+    slot.innerHTML = alertHTML("danger","⛔","Worst window is over 180 days",
+      "Your worst 12-month window has "+r.peak+" days outside the UK — "+over+" over the limit"+
+      (r.peakEnd?" (window ending "+fmtShort(r.peakEnd)+")":"")+". You may need to delay applying until a compliant window, or evidence an exemption.");
+  } else if(r.peak>r.limit*0.83){
+    slot.innerHTML = alertHTML("warn","⚠️","Getting close to 180",
+      "Your worst window has "+r.peak+" days. Keep upcoming trips short — you have "+(r.limit-r.peak)+" day(s) of headroom.");
+  }
+
+  // trips + evidence + documents
+  renderTrips();
+  renderEvSummary();
+  renderDocs();
+  save();
+}
+function alertHTML(cls,ico,title,body){
+  return '<div class="alert '+cls+'"><div class="a-ico">'+ico+'</div><div class="a-body"><strong>'+title+'</strong>'+body+'</div></div>';
+}
+function escapeHTML(s){ return (s||"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+
+function renderTrips(){
+  const wrap = document.getElementById("tripList");
+  const S = state.settings;
+  const qStart = parseD(S.start);
+  if(state.trips.length===0){
+    wrap.innerHTML = '<div class="empty"><div class="e-ico">🧳</div><p><b>No trips logged yet.</b></p><p>Add your first trip to start counting your days.</p></div>';
+    return;
+  }
+  const sorted = [...state.trips].sort((a,b)=> (b.depart||"").localeCompare(a.depart||""));
+  wrap.innerHTML = sorted.map(t=>{
+    const iv = tripInterval(t, S.method);
+    const days = intervalDays(iv);
+    const dep = parseD(t.depart);
+    const ongoing = !t.return;
+    const ret = ongoing ? today() : parseD(t.return);
+    const beforeQ = iv && iv.end < qStart;
+    let tag="";
+    if(ongoing) tag = '<div class="trip-tag">● currently abroad</div>';
+    else if(beforeQ) tag = '<div class="trip-tag">before qualifying period</div>';
+    else if(t.notes) tag = '<div class="trip-tag">'+escapeHTML(t.notes.slice(0,42))+(t.notes.length>42?"…":"")+'</div>';
+    const dateStr = dep ? (ongoing ? "Left "+fmtShort(dep) : fmtRange(dep,ret)) : "—";
+    const ev = evCount(t);
+    let evBadge = "";
+    if(!beforeQ){
+      const ecls = ev===EVIDENCE.length ? "ev-ok" : (ev>0 ? "ev-part" : "ev-none");
+      const etxt = ev===EVIDENCE.length ? "✓ Evidence ready" : (ev>0 ? ev+"/"+EVIDENCE.length+" evidence" : "No evidence yet");
+      evBadge = '<div class="ev-badge '+ecls+'">'+etxt+'</div>';
+    }
+    return '<div class="trip'+(beforeQ?" faded":"")+'" data-id="'+t.id+'">'+
+      '<div class="trip-ico">'+(ongoing?"🛫":"✈️")+'</div>'+
+      '<div class="trip-main"><div class="trip-dest">'+escapeHTML(t.destination||"Untitled trip")+'</div>'+
+      '<div class="trip-dates">'+dateStr+'</div>'+tag+evBadge+'</div>'+
+      '<div class="trip-days"><div class="d">'+days+'</div><div class="u">days</div></div>'+
+      '</div>';
+  }).join("");
+  wrap.querySelectorAll(".trip").forEach(el=>{
+    el.addEventListener("click",()=> openSheet(el.getAttribute("data-id")));
+  });
+}
+function renderEvSummary(){
+  const el = document.getElementById("evSummary");
+  const qStart = parseD(state.settings.start);
+  const relevant = state.trips.filter(t=>{ const iv=tripInterval(t,state.settings.method); return !(iv && iv.end < qStart); });
+  if(relevant.length===0){ el.style.display="none"; return; }
+  const ready = relevant.filter(t=> evCount(t)===EVIDENCE.length).length;
+  const frac = ready/relevant.length;
+  const cls = ready===relevant.length ? "ev-ok" : (frac>=0.5 ? "ev-part" : "ev-none");
+  el.style.display="flex";
+  el.className = "ev-summary "+cls;
+  el.innerHTML = '<span class="ev-dot"></span><span>Evidence ready for <b>'+ready+'</b> of <b>'+relevant.length+'</b> trip'+(relevant.length===1?"":"s")+'. Tap a trip to update.</span>';
+}
+function renderDocs(){
+  const list = document.getElementById("docsList");
+  const done = DOCS.filter(d=> state.docs[d.key]).length;
+  document.getElementById("docsProgress").innerHTML =
+    '<div class="docs-bar"><span style="width:'+Math.round(done/DOCS.length*100)+'%"></span></div>'+
+    '<div class="docs-count">'+done+' of '+DOCS.length+' gathered</div>';
+  list.innerHTML = DOCS.map(d=>{
+    const on = !!state.docs[d.key];
+    return '<div class="doc'+(on?' on':'')+'" data-k="'+d.key+'">'+
+      '<div class="doc-box">'+(on?'✓':'')+'</div>'+
+      '<div class="doc-main"><div class="doc-label">'+escapeHTML(d.label)+'</div>'+
+      '<div class="doc-tip">'+escapeHTML(d.tip)+'</div></div></div>';
+  }).join("");
+  list.querySelectorAll(".doc").forEach(el=>{
+    el.addEventListener("click",()=>{ const k=el.getAttribute("data-k"); state.docs[k]=!state.docs[k]; save(); renderDocs(); });
+  });
+}
+
+/* ---------- sheet (add/edit) ---------- */
+const scrim=document.getElementById("scrim"), sheet=document.getElementById("sheet");
+let editingId=null, sheetEvidence={};
+function openSheet(id){
+  editingId = id || null;
+  const t = id ? state.trips.find(x=>x.id===id) : null;
+  document.getElementById("sheetTitle").textContent = t? "Edit trip" : "Add trip";
+  document.getElementById("fDest").value = t? (t.destination||"") : "";
+  document.getElementById("fDepart").value = t? (t.depart||"") : "";
+  document.getElementById("fReturn").value = t? (t.return||"") : "";
+  document.getElementById("fNotes").value = t? (t.notes||"") : "";
+  sheetEvidence = Object.assign({stamp:false,boarding:false,booking:false}, t ? (t.evidence||{}) : {});
+  renderEvChips();
+  const ongoing = t? !t.return : false;
+  document.getElementById("fOngoing").checked = ongoing;
+  document.getElementById("returnField").style.display = ongoing? "none":"block";
+  document.getElementById("deleteRow").style.display = t? "flex":"none";
+  document.getElementById("formErr").textContent = "";
+  updateLiveDays();
+  scrim.classList.add("show"); sheet.classList.add("show");
+}
+function closeSheet(){ scrim.classList.remove("show"); sheet.classList.remove("show"); }
+
+function renderEvChips(){
+  const box = document.getElementById("evChips");
+  box.innerHTML = EVIDENCE.map(e=>{
+    const on = !!sheetEvidence[e.key];
+    return '<button type="button" class="chip'+(on?' on':'')+'" data-k="'+e.key+'">'+(on?'✓ ':'')+escapeHTML(e.label)+'</button>';
+  }).join("");
+  box.querySelectorAll(".chip").forEach(c=>{
+    c.addEventListener("click",()=>{ const k=c.getAttribute("data-k"); sheetEvidence[k]=!sheetEvidence[k]; renderEvChips(); });
+  });
+}
+
+function readForm(){
+  const ongoing = document.getElementById("fOngoing").checked;
+  return {
+    destination: document.getElementById("fDest").value.trim(),
+    depart: document.getElementById("fDepart").value,
+    return: ongoing ? "" : document.getElementById("fReturn").value,
+    notes: document.getElementById("fNotes").value.trim(),
+    ongoing
+  };
+}
+function updateLiveDays(){
+  const f = readForm();
+  const tmp = { depart:f.depart, return:f.ongoing?"":f.return };
+  const iv = f.depart ? tripInterval(tmp, state.settings.method) : null;
+  document.getElementById("liveDays").textContent = intervalDays(iv);
+}
+function validate(f){
+  if(!f.depart) return "Add the date you left the UK.";
+  if(!f.ongoing && !f.return) return "Add your return date, or switch on \u201cStill abroad\u201d.";
+  if(!f.ongoing && dayDiff(parseD(f.depart), parseD(f.return))<0) return "Return date can\u2019t be before the departure date.";
+  return "";
+}
+
+document.getElementById("addBtn").addEventListener("click",()=>openSheet(null));
+document.getElementById("cancelBtn").addEventListener("click",closeSheet);
+scrim.addEventListener("click",closeSheet);
+document.getElementById("fOngoing").addEventListener("change",e=>{
+  document.getElementById("returnField").style.display = e.target.checked?"none":"block";
+  updateLiveDays();
+});
+["fDest","fDepart","fReturn"].forEach(id=>document.getElementById(id).addEventListener("input",updateLiveDays));
+document.getElementById("saveBtn").addEventListener("click",()=>{
+  const f = readForm();
+  const err = validate(f);
+  if(err){ document.getElementById("formErr").textContent = err; return; }
+  if(editingId){
+    const t = state.trips.find(x=>x.id===editingId);
+    Object.assign(t,{destination:f.destination,depart:f.depart,return:f.return,notes:f.notes,evidence:Object.assign({},sheetEvidence)});
+  } else {
+    state.trips.push(normTrip({ destination:f.destination, depart:f.depart, return:f.return, notes:f.notes, evidence:Object.assign({},sheetEvidence) }));
+  }
+  closeSheet(); render();
+});
+document.getElementById("deleteBtn").addEventListener("click",()=>{
+  if(editingId && confirm("Delete this trip?")){
+    state.trips = state.trips.filter(x=>x.id!==editingId);
+    closeSheet(); render();
+  }
+});
+
+/* ---------- settings ---------- */
+function syncSettingsUI(){
+  document.getElementById("setStart").value = state.settings.start;
+  document.getElementById("setIlr").value = state.settings.ilr;
+  document.getElementById("setLimit").value = state.settings.limit;
+  document.querySelectorAll("#methodSeg button").forEach(b=>{
+    b.classList.toggle("on", b.dataset.m===state.settings.method);
+  });
+}
+document.getElementById("setStart").addEventListener("change",e=>{ state.settings.start=e.target.value; render(); });
+document.getElementById("setIlr").addEventListener("change",e=>{ state.settings.ilr=e.target.value; render(); });
+document.getElementById("setLimit").addEventListener("change",e=>{ state.settings.limit=Math.max(1,+e.target.value||180); render(); });
+document.querySelectorAll("#methodSeg button").forEach(b=>{
+  b.addEventListener("click",()=>{ state.settings.method=b.dataset.m; syncSettingsUI(); render(); });
+});
+
+/* ---------- export / import / reset ---------- */
+document.getElementById("exportBtn").addEventListener("click",()=>{
+  const blob = new Blob([JSON.stringify(state,null,2)],{type:"application/json"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href=url; a.download="uk-days-backup-"+fmtISO(today())+".json";
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),2000);
+});
+document.getElementById("importBtn").addEventListener("click",()=>document.getElementById("importFile").click());
+function mergeTrips(incoming){
+  const k = t => (t.depart||"")+"|"+(t.return||"");
+  const have = new Set(state.trips.map(k));
+  let added=0;
+  incoming.forEach(t=>{
+    const nt = normTrip(t);
+    if(nt.depart && !have.has(k(nt))){ state.trips.push(nt); have.add(k(nt)); added++; }
+  });
+  return added;
+}
+document.getElementById("importFile").addEventListener("change",e=>{
+  const file=e.target.files[0]; if(!file) return;
+  const reader=new FileReader();
+  reader.onload=()=>{
+    try{
+      const data=JSON.parse(reader.result);
+      if(data && data.settings && Array.isArray(data.trips)){
+        // full backup -> restore (replaces everything)
+        if(state.trips.length===0 || confirm("Replace ALL current data with this backup? Your "+state.trips.length+" current trip(s) will be removed.")){
+          state=loadStateFrom(data); save(); syncSettingsUI(); render();
+          alert("Backup restored.");
+        }
+      } else if(data && Array.isArray(data.trips)){
+        // trips-only file (e.g. the photo scan) -> merge, never erases
+        const added=mergeTrips(data.trips), skipped=data.trips.length-added;
+        save(); render();
+        alert("Added "+added+" trip(s)."+(skipped>0?" Skipped "+skipped+" already in your list.":""));
+      } else if(Array.isArray(data)){
+        const added=mergeTrips(data); save(); render();
+        alert("Added "+added+" trip(s).");
+      } else {
+        alert("That file doesn\u2019t look like UK Days data.");
+      }
+    }catch(err){ alert("Couldn\u2019t read that file. Use the .json from a backup or the photo scan."); }
+    e.target.value="";
+  };
+  reader.readAsText(file);
+});
+function loadStateFrom(data){
+  const s = { settings:Object.assign({start:"2021-09-28",ilr:"2026-09-28",limit:180,method:"exclusive"},data.settings),
+              trips:(data.trips||[]).map(normTrip),
+              docs:(data.docs && typeof data.docs==="object") ? data.docs : {} };
+  return s;
+}
+document.getElementById("resetBtn").addEventListener("click",()=>{
+  if(confirm("Delete ALL trips and reset settings? Export a backup first if you want to keep your data.")){
+    state={settings:{start:"2021-09-28",ilr:"2026-09-28",limit:180,method:"exclusive"},trips:[],docs:{}};
+    save(); syncSettingsUI(); render();
+  }
+});
+
+/* ---------- go ---------- */
+syncSettingsUI();
+render();
+</script>
+</body>
+</html>
