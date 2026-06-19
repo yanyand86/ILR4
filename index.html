@@ -281,6 +281,10 @@
   .doc-label{font-size:14px;font-weight:600;}
   .doc.on .doc-label{color:var(--ink-soft);}
   .doc-tip{font-size:12px;color:var(--ink-faint);margin-top:2px;line-height:1.45;}
+  .dest-row{ display:flex; align-items:center; gap:10px; }
+  .dest-row input{ flex:1 1 auto; width:auto; }
+  .dest-flag{ font-size:26px; min-width:30px; text-align:center; line-height:1; }
+  .worst-range{ font-size:11.5px; color:rgba(255,255,255,.6); font-family:var(--mono); }
   .form-text{
     width:100%; min-height:240px; resize:vertical; font-family:var(--mono);
     font-size:12.5px; line-height:1.5; color:var(--ink); background:var(--paper);
@@ -350,6 +354,7 @@
     <div class="status-row">
       <span class="pill ok" id="statusPill"><span class="glyph"></span><span id="statusText">On track</span></span>
       <span class="room-line" id="roomLine"></span>
+      <span class="worst-range" id="worstRange"></span>
     </div>
   </header>
 
@@ -490,7 +495,10 @@
   <h3 id="sheetTitle">Add trip</h3>
   <div class="field">
     <label for="fDest">Destination</label>
-    <input type="text" id="fDest" placeholder="e.g. Spain, family visit" autocomplete="off">
+    <div class="dest-row">
+      <input type="text" id="fDest" placeholder="e.g. Spain, family visit" autocomplete="off">
+      <span id="destFlag" class="dest-flag"></span>
+    </div>
   </div>
   <div class="field">
     <label for="fDepart">Left the UK</label>
@@ -598,6 +606,50 @@ function normTrip(t){
   };
 }
 function evCount(t){ return EVIDENCE.reduce((n,e)=> n + (t.evidence && t.evidence[e.key] ? 1 : 0), 0); }
+
+/* ---------- country flags ---------- */
+const COUNTRY = {
+  "united kingdom":"GB","uk":"GB","gb":"GB","england":"GB","scotland":"GB","wales":"GB","britain":"GB","great britain":"GB","gibraltar":"GI",
+  "ireland":"IE","france":"FR","spain":"ES","españa":"ES","portugal":"PT","italy":"IT","italia":"IT","germany":"DE","deutschland":"DE",
+  "netherlands":"NL","holland":"NL","belgium":"BE","luxembourg":"LU","switzerland":"CH","austria":"AT","poland":"PL","czech republic":"CZ","czechia":"CZ",
+  "slovakia":"SK","hungary":"HU","romania":"RO","bulgaria":"BG","greece":"GR","croatia":"HR","slovenia":"SI","serbia":"RS","bosnia":"BA","montenegro":"ME",
+  "albania":"AL","north macedonia":"MK","macedonia":"MK","denmark":"DK","sweden":"SE","norway":"NO","finland":"FI","iceland":"IS","estonia":"EE","latvia":"LV",
+  "lithuania":"LT","ukraine":"UA","belarus":"BY","russia":"RU","turkey":"TR","türkiye":"TR","cyprus":"CY","malta":"MT","monaco":"MC","andorra":"AD","liechtenstein":"LI","vatican":"VA",
+  "united states":"US","usa":"US","us":"US","america":"US","canada":"CA","mexico":"MX","brazil":"BR","argentina":"AR","chile":"CL","peru":"PE","colombia":"CO",
+  "venezuela":"VE","ecuador":"EC","bolivia":"BO","paraguay":"PY","uruguay":"UY","cuba":"CU","jamaica":"JM","dominican republic":"DO","costa rica":"CR","panama":"PA",
+  "guatemala":"GT","honduras":"HN","el salvador":"SV","nicaragua":"NI","bahamas":"BS","barbados":"BB","trinidad":"TT","puerto rico":"PR",
+  "china":"CN","japan":"JP","south korea":"KR","korea":"KR","north korea":"KP","india":"IN","pakistan":"PK","bangladesh":"BD","sri lanka":"LK","nepal":"NP",
+  "thailand":"TH","vietnam":"VN","cambodia":"KH","laos":"LA","myanmar":"MM","burma":"MM","malaysia":"MY","singapore":"SG","indonesia":"ID","philippines":"PH",
+  "hong kong":"HK","taiwan":"TW","macau":"MO","mongolia":"MN","kazakhstan":"KZ","uzbekistan":"UZ","afghanistan":"AF","iran":"IR","iraq":"IQ","israel":"IL",
+  "palestine":"PS","jordan":"JO","lebanon":"LB","syria":"SY","saudi arabia":"SA","united arab emirates":"AE","uae":"AE","dubai":"AE","abu dhabi":"AE","qatar":"QA",
+  "kuwait":"KW","bahrain":"BH","oman":"OM","yemen":"YE","maldives":"MV","brunei":"BN",
+  "egypt":"EG","morocco":"MA","tunisia":"TN","algeria":"DZ","libya":"LY","south africa":"ZA","nigeria":"NG","kenya":"KE","tanzania":"TZ","ethiopia":"ET",
+  "ghana":"GH","uganda":"UG","zimbabwe":"ZW","zambia":"ZM","mozambique":"MZ","namibia":"NA","botswana":"BW","senegal":"SN","cameroon":"CM","angola":"AO",
+  "rwanda":"RW","mauritius":"MU","seychelles":"SC","madagascar":"MG",
+  "australia":"AU","new zealand":"NZ","fiji":"FJ","papua new guinea":"PG","samoa":"WS","tonga":"TO",
+  "bali":"ID","ibiza":"ES","mallorca":"ES","majorca":"ES","tenerife":"ES","gran canaria":"ES","lanzarote":"ES","canary islands":"ES","sicily":"IT","sardinia":"IT",
+  "crete":"GR","santorini":"GR","mykonos":"GR","rhodes":"GR","corfu":"GR","phuket":"TH","goa":"IN"
+};
+const COUNTRY_KEYS = Object.keys(COUNTRY).sort((a,b)=>b.length-a.length);
+function flagEmoji(cc){
+  if(!cc || cc.length!==2) return "";
+  cc = cc.toUpperCase();
+  return String.fromCodePoint(0x1F1E6 + cc.charCodeAt(0)-65, 0x1F1E6 + cc.charCodeAt(1)-65);
+}
+function flagFor(dest){
+  if(!dest) return "";
+  const s = dest.toLowerCase().replace(/[._]/g," ").trim();
+  if(COUNTRY[s]) return flagEmoji(COUNTRY[s]);
+  const parts = s.split(",").map(x=>x.trim()).filter(Boolean);
+  for(let i=parts.length-1;i>=0;i--){ if(COUNTRY[parts[i]]) return flagEmoji(COUNTRY[parts[i]]); }
+  for(const name of COUNTRY_KEYS){
+    if(s.indexOf(name)>=0){
+      const re = new RegExp("(^|[^a-z])"+name.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")+"([^a-z]|$)");
+      if(re.test(s)) return flagEmoji(COUNTRY[name]);
+    }
+  }
+  return "";
+}
 
 /* ---------- date helpers ---------- */
 const DAY = 86400000;
@@ -751,6 +803,9 @@ function render(){
   const roomEl = document.getElementById("roomLine");
   if(room>=0) roomEl.innerHTML = "<b>"+room+"</b> day"+(room===1?"":"s")+" of room in your worst window";
   else roomEl.innerHTML = "<b>"+Math.abs(room)+"</b> day"+(Math.abs(room)===1?"":"s")+" over the limit";
+  const wr = document.getElementById("worstRange");
+  if(r.peak>0 && r.peakEnd){ wr.textContent = "Worst 12 months: "+fmtShort(addDays(r.peakEnd,-364))+" – "+fmtShort(r.peakEnd); }
+  else { wr.textContent = ""; }
 
   // tiles
   document.getElementById("curNum").textContent = r.current;
@@ -824,7 +879,7 @@ function renderTrips(){
       evBadge = '<div class="ev-badge '+ecls+'">'+etxt+'</div>';
     }
     return '<div class="trip'+(beforeQ?" faded":"")+'" data-id="'+t.id+'">'+
-      '<div class="trip-ico">'+(ongoing?"🛫":"✈️")+'</div>'+
+      '<div class="trip-ico">'+(flagFor(t.destination) || (ongoing?"🛫":"✈️"))+'</div>'+
       '<div class="trip-main"><div class="trip-dest">'+escapeHTML(t.destination||"Untitled trip")+'</div>'+
       '<div class="trip-dates">'+dateStr+'</div>'+tag+evBadge+'</div>'+
       '<div class="trip-days"><div class="d">'+days+'</div><div class="u">days</div></div>'+
@@ -883,6 +938,7 @@ function openSheet(id){
   document.getElementById("returnField").style.display = ongoing? "none":"block";
   document.getElementById("deleteRow").style.display = t? "flex":"none";
   document.getElementById("formErr").textContent = "";
+  updateDestFlag();
   updateLiveDays();
   scrim.classList.add("show"); sheet.classList.add("show");
 }
@@ -910,6 +966,9 @@ function readForm(){
     ongoing
   };
 }
+function updateDestFlag(){
+  document.getElementById("destFlag").textContent = flagFor(document.getElementById("fDest").value);
+}
 function updateLiveDays(){
   const f = readForm();
   const tmp = { depart:f.depart, return:f.ongoing?"":f.return };
@@ -931,6 +990,7 @@ document.getElementById("fOngoing").addEventListener("change",e=>{
   updateLiveDays();
 });
 ["fDest","fDepart","fReturn"].forEach(id=>document.getElementById(id).addEventListener("input",updateLiveDays));
+document.getElementById("fDest").addEventListener("input",updateDestFlag);
 document.getElementById("saveBtn").addEventListener("click",()=>{
   const f = readForm();
   const err = validate(f);
