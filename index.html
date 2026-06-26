@@ -442,6 +442,7 @@
           <button class="btn btn-line" id="importBtn">⬆ Import backup</button>
         </div>
         <div class="hint">Import also accepts the photo-scan file — it merges, so trips you’ve already added won’t be erased.</div>
+        <div class="hint">Export saves one file, <b>uk-days-sync.json</b> — this is also how you sync your iPhone and iPad (see “Sync between iPhone &amp; iPad” below).</div>
         <div class="field" style="margin-top:18px;">
           <label for="setName">Your name (for the printout, optional)</label>
           <input type="text" id="setName" placeholder="e.g. Jane Smith" autocomplete="off">
@@ -458,6 +459,21 @@
           <button class="btn btn-danger-line btn-block" id="resetBtn">Clear all data</button>
         </div>
         <input type="file" id="importFile" accept="application/json,.json" hidden>
+      </div>
+    </details>
+
+    <details class="panel">
+      <summary>Sync between iPhone &amp; iPad <span class="chev">›</span></summary>
+      <div class="panel-body">
+        <p class="note">Your trips live in this device’s browser, so they don’t sync on their own. To copy them across, use a backup file through Google Drive or iCloud Drive.</p>
+        <p class="note" style="margin-top:10px;"><b>To send your data to your other device:</b></p>
+        <ol class="note" style="padding-left:18px;margin-top:6px;">
+          <li>On the device you’ve been using, tap <b>Export backup</b> above and save <b>uk-days-sync.json</b> to Google Drive (or iCloud Drive).</li>
+          <li>On the other device, tap <b>Import backup</b> above and pick that same file.</li>
+        </ol>
+        <p class="note" style="margin-top:10px;">The file holds everything — trips, evidence, the checklist and your settings — so the second device becomes an exact copy.</p>
+        <p class="note" style="margin-top:10px;"><b>One rule:</b> edit on one device at a time. Whichever device you exported from last is the master — importing it replaces the other device’s data.</p>
+        <p class="note" style="margin-top:10px;">Keeping the same filename means you just overwrite the one file each time and always import the latest. On Apple devices iCloud Drive is the simplest, since it’s already in the Files app.</p>
       </div>
     </details>
 
@@ -1046,7 +1062,7 @@ async function shareOrDownload(filename, content, mime){
 }
 
 document.getElementById("exportBtn").addEventListener("click",()=>{
-  shareOrDownload("uk-days-backup-"+fmtISO(today())+".json", JSON.stringify(state,null,2), "application/json");
+  shareOrDownload("uk-days-sync.json", JSON.stringify(state,null,2), "application/json");
 });
 
 function csvCell(v){ v = (v==null?"":String(v)); return '"'+v.replace(/"/g,'""')+'"'; }
